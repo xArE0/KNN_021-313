@@ -1,19 +1,26 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 from collections import Counter
 
 # Load dataset
-df = pd.read_csv("orange_knn_data.csv")  # Use full path if running locally
+df = pd.read_csv("orange_knn_data.csv")
 
-# Manhattan distance function for two fixed features: Size and Texture
+# Manhattan distance function
 def manhattan_distance(x1, x2):
     return abs(x1[0] - x2[0]) + abs(x1[1] - x2[1])
 
-# Fixed-feature KNN function
+# Encode categories to numbers
+class_labels = df['Category'].unique()
+class_to_int = {label: idx for idx, label in enumerate(class_labels)}
+int_to_class = {idx: label for label, idx in class_to_int.items()}
+df['CategoryInt'] = df['Category'].map(class_to_int)
+
+# KNN Classifier
 def knn_classify_fixed(new_item, k, dataset):
     distances = []
     for i, row in dataset.iterrows():
-        features = [row['Size'], row['Texture']]  # fixed feature access
+        features = [row['Size'], row['Texture']]
         dist = manhattan_distance(new_item, features)
         distances.append((i, dist))
 
@@ -22,38 +29,36 @@ def knn_classify_fixed(new_item, k, dataset):
     categories = [dataset.iloc[i]['Category'] for i, _ in top_k]
     freq = Counter(categories)
     prediction = freq.most_common(1)[0][0]
+    return prediction
 
-    print(f"\nNew Item: {new_item}")
-    print(f"Predicted Category: {prediction}")
-    return prediction, distances, categories
+# Grid for contour
+x_min, x_max = df['Size'].min() - 1, df['Size'].max() + 1
+y_min, y_max = df['Texture'].min() - 1, df['Texture'].max() + 1
+xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.2),
+                     np.arange(y_min, y_max, 0.2))
 
-# Test the KNN function with a new orange
+# Predict integer class for each point on the grid
+Z = np.array([class_to_int[knn_classify_fixed([x, y], 3, df)] for x, y in zip(xx.ravel(), yy.ravel())])
+Z = Z.reshape(xx.shape)
+
+# Plot decision boundary
+plt.figure(figsize=(10, 7))
+plt.contourf(xx, yy, Z, alpha=0.3, cmap='Accent')  # numeric Z with colormap
+
+# Plot actual data points
+for label in class_labels:
+    subset = df[df['Category'] == label]
+    plt.scatter(subset['Size'], subset['Texture'], label=label, edgecolor='k')
+
+# New test point
 new_orange = [2, 0]
-k = 3
-predicted_class, distance_list, top_categories = knn_classify_fixed(new_orange, k, df)
+predicted_class = knn_classify_fixed(new_orange, 3, df)
+plt.scatter(new_orange[0], new_orange[1], c='red', s=100, marker='X', label=f'New Orange → {predicted_class}', edgecolor='black')
 
-# Visualize top 10 distances
-plt.figure(figsize=(10, 5))
-top_n = 10
-top_indices = [i for i, _ in distance_list[:top_n]]
-x_labels = [f"ID {df.iloc[i]['ID']}" for i in top_indices]
-y_values = [dist for _, dist in distance_list[:top_n]]
-top_k_categories = [df.iloc[i]['Category'] for i in top_indices]
-
-# Color bars: green for k-nearest, orange for rest
-colors = ['green' if i < k else 'orange' for i in range(top_n)]
-bars = plt.bar(x_labels, y_values, color=colors)
-
-# Add category labels above bars
-for i, bar in enumerate(bars):
-    height = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width() / 2, height + 0.2,
-             top_k_categories[i], ha='center', fontsize=9)
-
-plt.title("Top 10 Manhattan Distances to New Orange")
-plt.xlabel("Data Points")
-plt.ylabel("Distance")
-plt.xticks(rotation=45)
-plt.ylim(0, max(y_values) * 1.3)
+plt.title("KNN Decision Boundary (k=3, Manhattan Distance)")
+plt.xlabel("Size")
+plt.ylabel("Texture")
+plt.legend()
+plt.grid(True)
 plt.tight_layout()
 plt.show()
