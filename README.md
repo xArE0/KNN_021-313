@@ -70,7 +70,8 @@ After classification, we generate a bar chart to visualize the **top 10 nearest 
 
 ---
 
-## ▶️ How to Use
+## ▶️ Output
+![KNN](https://github.com/user-attachments/assets/96761afc-5d10-4d66-8478-e33702fa7570)
 
 ### ✅ Generalized KNN
 
